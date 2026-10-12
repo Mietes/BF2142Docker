@@ -421,6 +421,17 @@ async function loadServer(full = true) {
 }
 
 function renderServerStatus() {
+  // Карточка перерисовывается каждые 15 с — недописанное сообщение в чат не теряем.
+  const say = $("#cmdSay"), sayText = say ? say.value : "", sayFocused = say && document.activeElement === say;
+  renderServerStatusCard();
+  const sayAfter = $("#cmdSay");
+  if (sayAfter) {
+    sayAfter.value = sayText;
+    if (sayFocused) sayAfter.focus();
+  }
+}
+
+function renderServerStatusCard() {
   const st = srv.data.status;
   if (!st) {
     $("#srvStatus").innerHTML = `<h2>Состояние</h2><div><span class="dot"></span>Игровой сервер не на связи
@@ -521,12 +532,13 @@ $("#srvRot").onchange = (e) => {
   renderRotation();
 };
 $("#srvRot").onclick = (e) => {
-  const tr = e.target.closest("tr");
-  if (!tr || !tr.dataset.i) return;
+  // Только кнопки ↑ ↓ ×: перерисовка по клику на сам список закрывала бы его сразу после открытия.
+  const btn = e.target.closest("button"), tr = e.target.closest("tr");
+  if (!btn || !tr || !tr.dataset.i) return;
   const i = Number(tr.dataset.i);
-  if (e.target.dataset.del) srv.rotation.splice(i, 1);
-  if (e.target.dataset.mv) {
-    const j = i + Number(e.target.dataset.mv);
+  if (btn.dataset.del) srv.rotation.splice(i, 1);
+  if (btn.dataset.mv) {
+    const j = i + Number(btn.dataset.mv);
     if (j < 0 || j >= srv.rotation.length) return;
     [srv.rotation[i], srv.rotation[j]] = [srv.rotation[j], srv.rotation[i]];
   }
