@@ -1,0 +1,429 @@
+{
+ "_comment": "Карты Project Remaster v17 для сервера: режим -> размеры (папки gamemodes/<режим>/<размер> в levels/*/server.zip)",
+ "levels": {
+  "backstab": {
+   "gpm_coop": [
+    16,
+    32,
+    64
+   ],
+   "gpm_cq": [
+    16,
+    32,
+    64
+   ],
+   "gpm_tdm": [
+    16
+   ],
+   "gpm_ti": [
+    48
+   ]
+  },
+  "battle_for_frankfurt": {
+   "gpm_cq": [
+    16,
+    32,
+    64
+   ],
+   "gpm_nv": [
+    16,
+    32,
+    64
+   ],
+   "gpm_sl": [
+    16,
+    32,
+    64
+   ],
+   "gpm_ti": [
+    48
+   ]
+  },
+  "belgrade": {
+   "gpm_coop": [
+    16,
+    32,
+    64
+   ],
+   "gpm_cq": [
+    16,
+    32,
+    64
+   ],
+   "gpm_nv": [
+    16,
+    32
+   ],
+   "gpm_ti": [
+    48
+   ]
+  },
+  "breakthrough_at_remagen": {
+   "gpm_coop": [
+    12,
+    16,
+    32,
+    64
+   ],
+   "gpm_cq": [
+    16,
+    32,
+    64
+   ]
+  },
+  "bridge_at_remagen": {
+   "gpm_coop": [
+    16,
+    32,
+    48,
+    64
+   ],
+   "gpm_sl": [
+    16,
+    32,
+    64
+   ],
+   "gpm_ti": [
+    48
+   ]
+  },
+  "camp_gibraltar": {
+   "gpm_coop": [
+    16,
+    32,
+    64
+   ],
+   "gpm_cq": [
+    16,
+    32
+   ],
+   "gpm_nv": [
+    16,
+    32
+   ],
+   "gpm_ti": [
+    48
+   ]
+  },
+  "cerbere_landing": {
+   "gpm_coop": [
+    16,
+    32,
+    48,
+    64
+   ],
+   "gpm_cq": [
+    16,
+    32,
+    64
+   ],
+   "gpm_ti": [
+    48
+   ]
+  },
+  "fall_of_berlin": {
+   "gpm_coop": [
+    16,
+    32,
+    48,
+    64
+   ],
+   "gpm_cq": [
+    16,
+    32,
+    64
+   ],
+   "gpm_ti": [
+    48
+   ]
+  },
+  "highway_tampa": {
+   "gpm_coop": [
+    16,
+    32,
+    48,
+    64
+   ],
+   "gpm_sl": [
+    16,
+    32,
+    64
+   ],
+   "gpm_ti": [
+    48
+   ]
+  },
+  "leipzig": {
+   "gpm_coop": [
+    16,
+    32,
+    64
+   ],
+   "gpm_cq": [
+    16,
+    32,
+    64
+   ],
+   "gpm_sl": [
+    16,
+    32,
+    64
+   ]
+  },
+  "minsk": {
+   "gpm_coop": [
+    16,
+    32,
+    48,
+    64
+   ],
+   "gpm_cq": [
+    16,
+    32,
+    64
+   ],
+   "gpm_ti": [
+    48
+   ]
+  },
+  "molokai": {
+   "gpm_coop": [
+    16,
+    32,
+    64
+   ],
+   "gpm_cq": [
+    16,
+    32,
+    64
+   ],
+   "gpm_ti": [
+    48
+   ]
+  },
+  "operation_blue_pearl": {
+   "gpm_coop": [
+    16,
+    32,
+    64
+   ],
+   "gpm_sl": [
+    16,
+    32,
+    64
+   ]
+  },
+  "operation_imra": {
+   "gpm_cq": [
+    16,
+    32,
+    64
+   ],
+   "gpm_ti": [
+    48
+   ]
+  },
+  "operation_shingle": {
+   "gpm_coop": [
+    16,
+    32,
+    64
+   ],
+   "gpm_cq": [
+    16,
+    32,
+    64
+   ],
+   "gpm_nv": [
+    16,
+    32,
+    64
+   ],
+   "gpm_sl": [
+    16,
+    32,
+    64
+   ]
+  },
+  "outpost_87": {
+   "gpm_cq": [
+    16,
+    32,
+    64
+   ]
+  },
+  "port_bavaria_day": {
+   "gpm_coop": [
+    16,
+    32,
+    48,
+    64
+   ],
+   "gpm_cq": [
+    16,
+    32,
+    64
+   ],
+   "gpm_sl": [
+    16,
+    32,
+    64
+   ],
+   "gpm_ti": [
+    48
+   ]
+  },
+  "port_bavaria_night": {
+   "gpm_coop": [
+    16,
+    32,
+    48,
+    64
+   ],
+   "gpm_cq": [
+    16,
+    32,
+    64
+   ],
+   "gpm_sl": [
+    16,
+    32,
+    64
+   ],
+   "gpm_ti": [
+    48
+   ]
+  },
+  "shuhia_taiba": {
+   "gpm_coop": [
+    16,
+    32,
+    48,
+    64
+   ],
+   "gpm_cq": [
+    16,
+    32,
+    64
+   ],
+   "gpm_ti": [
+    48
+   ]
+  },
+  "sidi_power_plant": {
+   "gpm_coop": [
+    16,
+    32,
+    48,
+    64
+   ],
+   "gpm_cq": [
+    16,
+    32,
+    64
+   ],
+   "gpm_ti": [
+    48
+   ]
+  },
+  "strike_at_karkand": {
+   "gpm_coop": [
+    16,
+    32,
+    64
+   ],
+   "gpm_cq": [
+    16,
+    32,
+    64
+   ],
+   "gpm_nv": [
+    16,
+    32,
+    64
+   ]
+  },
+  "suez_canal": {
+   "gpm_coop": [
+    16,
+    32,
+    48,
+    64
+   ],
+   "gpm_cq": [
+    16,
+    32,
+    64
+   ],
+   "gpm_ti": [
+    48
+   ]
+  },
+  "tunis_harbor": {
+   "gpm_coop": [
+    16,
+    32,
+    64
+   ],
+   "gpm_cq": [
+    16,
+    32,
+    64
+   ]
+  },
+  "tunis_harbor_assault": {
+   "gpm_coop": [
+    16,
+    32,
+    64
+   ],
+   "gpm_cq": [
+    16,
+    32,
+    64
+   ]
+  },
+  "verdun": {
+   "gpm_coop": [
+    16,
+    32,
+    48,
+    64
+   ],
+   "gpm_cq": [
+    16,
+    32,
+    48,
+    64
+   ],
+   "gpm_ti": [
+    48
+   ]
+  },
+  "verdun_ctf": {
+   "gpm_ctf": [
+    16
+   ]
+  },
+  "wake_island_2142": {
+   "gpm_ca": [
+    64
+   ],
+   "gpm_coop": [
+    64
+   ]
+  },
+  "yellow_knife": {
+   "gpm_coop": [
+    16,
+    32,
+    64
+   ],
+   "gpm_sl": [
+    16,
+    32,
+    64
+   ]
+  }
+ }
+}

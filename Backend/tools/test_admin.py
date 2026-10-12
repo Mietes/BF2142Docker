@@ -99,6 +99,44 @@ def main():
     db._conn.execute("UPDATE bans SET until=? WHERE account_id=? AND lifted IS NULL", (int(time.time()) - 1, acc))
     check(db.active_ban(acc) is None and db.banned_pids() == [], "истёкший бан не действует")
 
+    print("Настройки сервера из панели:")
+    sc = ctx.server
+    status, reply = request(svc, "POST", "/selfhost/status",
+                            b"config=0\nmap=minsk\nmode=gpm_cq\nsv.serverName=Test\nplayer=3\tHero\t%d\t1\t50\t5\t2\t40\n" % pid)
+    check(status == 200 and "config=0" in reply and f"admins={boss}" in reply, "статус сервера принят, в ответе админы и версия")
+    st = sc.current_status()
+    check(st["map"] == "minsk" and st["settings"]["serverName"] == "Test" and st["players"][0]["name"] == "Hero",
+          "панель видит карту, настройки и игроков")
+    for bad, why in (({"soldierFriendlyFire": 150}, "огонь 150%"), ({"nope": 1}, "неизвестный ключ")):
+        try:
+            sc.save(settings=bad)
+            check(False, f"отказ: {why}")
+        except ValueError:
+            check(True, f"отказ: {why}")
+    try:
+        sc.save(maplist=[["minsk", "gpm_ti", 64]])
+        check(False, "отказ: Титан на 64 на Минске (бывает только 48)")
+    except ValueError:
+        check(True, "отказ: Титан на 64 на Минске (бывает только 48)")
+    try:
+        sc.save(settings={"serverName": "Мой сервер"})
+        check(False, "отказ: кириллица в названии")
+    except ValueError:
+        check(True, "отказ: кириллица в названии")
+    version = sc.save(settings={"serverName": 'My "server"\n', "soldierFriendlyFire": "0", "tkPunishEnabled": False},
+                      maplist=[["minsk", "gpm_ti", 48], ["outpost_87", "gpm_cq", 64]])
+    lines = request(svc, "GET", "/selfhost/serverconfig")[1].splitlines()
+    check(lines[0] == f"version={version}" and 'sv.serverName "My server"' in lines and "sv.soldierFriendlyFire 0" in lines
+          and "sv.tkPunishEnabled 0" in lines and lines[-2:] == ["mapList.append minsk gpm_ti 48",
+                                                                "mapList.append outpost_87 gpm_cq 64"],
+          f"конфиг для сервера: кавычки и переводы строк вычищены ({lines[1:4]})")
+    sc.queue("next_map")
+    sc.queue("say", "Привет")
+    reply = request(svc, "POST", "/selfhost/status", b"config=0\n")[1]
+    check(f"config={version}" in reply and "cmd=next_map" in reply and "cmd=say Привет" in reply,
+          "в ответе новая версия и команды")
+    check("cmd=" not in request(svc, "POST", "/selfhost/status", b"config=0\n")[1], "команды отдаются один раз")
+
     print("Адрес игрового сервера в списке:")
     local = GameServer("203.0.113.5", 29900, b"k", local_ip="127.0.0.1")  # сервер на машине бэкенда
     check(_ip_for("127.0.0.1", local) == "127.0.0.1", "хозяину на той же машине — 127.0.0.1")

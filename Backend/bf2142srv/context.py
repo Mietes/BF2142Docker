@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from .config import Config
 from .db import Database
+from .server_config import ServerConfig
 
 
 @dataclass
@@ -48,3 +49,8 @@ class Context:
     cfg: Config
     db: Database
     tickets: TicketStore
+    server: ServerConfig | None = None  # настройки игрового сервера из админки, его состояние, команды
+
+    def __post_init__(self):
+        if self.server is None:
+            self.server = ServerConfig(self.db)

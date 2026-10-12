@@ -57,6 +57,17 @@ class ServerAPI:
     def post_snapshot(self, body, client_ip) -> str:
         return rounds.apply_round(self.ctx, body, client_ip)
 
+    def post_status(self, body, client_ip) -> str:
+        """Раз в полминуты: сервер присылает состояние (карта, игроки, sv.*), получает админов, баны,
+        версию настроек из админки и команды (следующая карта, кик, сообщение в чат)."""
+        self.ctx.server.update_status(body.decode("utf-8", "replace"), client_ip)
+        lines = [self.get_serverinfo(body, client_ip).rstrip("\n"), f"config={self.ctx.server.load()['version']}"]
+        lines += [f"cmd={c}" for c in self.ctx.server.take_commands()]
+        return "\n".join(lines) + "\n"
+
+    def get_serverconfig(self, body, client_ip) -> str:
+        return self.ctx.server.config_lines()
+
     def get_serverinfo(self, body, client_ip) -> str:
         """Админы и забаненные (pid через пробел) и кик за бездействие (секунды)."""
         admins = []

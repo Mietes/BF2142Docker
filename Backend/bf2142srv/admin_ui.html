@@ -83,6 +83,17 @@
            border-radius: 8px; max-width: 420px; box-shadow: 0 6px 20px rgba(0,0,0,.4); }
   .toast.err { border-left-color: var(--bad); }
   .hidden { display: none !important; }
+  .settings { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px 18px; }
+  .setting { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 4px 0; }
+  .setting label { color: var(--text); font-size: 13px; }
+  .setting input[type=number] { width: 90px; }
+  .setting input[type=text] { width: 180px; }
+  .setting input.changed { border-color: var(--warn); }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; background: var(--bad); }
+  .dot.on { background: var(--ok); }
+  .rot td select { width: 100%; }
+  .rot td.n { color: var(--muted); width: 28px; }
+  .rot td.act { white-space: nowrap; width: 1%; }
 </style>
 </head>
 <body>
@@ -91,6 +102,7 @@
   <nav>
     <button data-tab="players" class="active">Игроки</button>
     <button data-tab="bans">Баны</button>
+    <button data-tab="server">Сервер</button>
   </nav>
   <div class="spacer"></div>
   <span class="muted" id="status"></span>
@@ -108,6 +120,31 @@
 
 <main id="view-bans" class="hidden" style="grid-template-columns: 1fr;">
   <section><div class="card"><h2>Действующие баны</h2><div id="bans"></div></div></section>
+</main>
+
+<main id="view-server" class="hidden" style="grid-template-columns: 1fr;">
+  <section>
+    <div class="card" id="srvStatus"><div class="empty">Загрузка…</div></div>
+    <div class="card">
+      <h2>Настройки</h2>
+      <div class="settings" id="srvSettings"></div>
+      <div class="row" style="margin-top:12px"><button class="btn" id="srvSave">Сохранить изменённые</button>
+        <span class="note">Сервер применит их в течение 30 секунд; большинство действует со следующего раунда,
+        «Игроков максимум» — после перезапуска сервера. Жёлтым — изменённые, но не сохранённые.</span></div>
+    </div>
+    <div class="card">
+      <h2>Ротация карт</h2>
+      <div id="srvRotNote" class="note" style="margin-bottom:8px"></div>
+      <table class="rot"><tbody id="srvRot"></tbody></table>
+      <div class="row" style="margin-top:10px">
+        <button class="btn ghost" id="rotAdd">+ Карта</button>
+        <button class="btn ghost" id="rotDefault">Стандартная: Завоевание 64 + Титан 48</button>
+        <div class="spacer"></div>
+        <button class="btn" id="rotSave">Сохранить ротацию</button>
+      </div>
+      <div class="note">Режимы и размеры — только те, что есть у карты в Remaster. Новая ротация действует со следующей карты.</div>
+    </div>
+  </section>
 </main>
 
 <div id="toast"></div>
@@ -357,6 +394,159 @@ $("#bans").onclick = async (e) => {
   try { toast((await call(`/api/account/${id}/unban`, {})).ok); loadBans(); loadPlayers(); } catch (err) { toast(err.message, true); }
 };
 
+// --- игровой сервер ----------------------------------------------------------
+
+const DEFAULT_ROTATION = [
+  ["sidi_power_plant", "gpm_cq", 64], ["minsk", "gpm_ti", 48], ["operation_shingle", "gpm_cq", 64],
+  ["suez_canal", "gpm_ti", 48], ["cerbere_landing", "gpm_cq", 64], ["shuhia_taiba", "gpm_ti", 48],
+  ["tunis_harbor", "gpm_cq", 64], ["verdun", "gpm_ti", 48], ["wake_island_2142", "gpm_ca", 64],
+  ["camp_gibraltar", "gpm_ti", 48], ["belgrade", "gpm_cq", 64], ["molokai", "gpm_ti", 48],
+  ["operation_imra", "gpm_cq", 64], ["highway_tampa", "gpm_ti", 48], ["outpost_87", "gpm_cq", 64],
+  ["backstab", "gpm_ti", 48],
+];
+const srv = { data: null, rotation: [], timer: null };
+const mapName = (m) => String(m || "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+const modeName = (m) => (srv.data && srv.data.modes[m]) || m;
+
+async function loadServer(full = true) {
+  try {
+    srv.data = await call("/api/server");
+    renderServerStatus();
+    if (full) {
+      renderSettings();
+      srv.rotation = (srv.data.config.maplist || []).map((r) => r.slice());
+      renderRotation();
+    }
+  } catch (e) { toast(e.message, true); }
+}
+
+function renderServerStatus() {
+  const st = srv.data.status;
+  if (!st) {
+    $("#srvStatus").innerHTML = `<h2>Состояние</h2><div><span class="dot"></span>Игровой сервер не на связи
+      <span class="note">(он отчитывается раз в 30 секунд; выключен или ещё запускается)</span></div>`;
+    return;
+  }
+  const s = st.settings, players = st.players;
+  $("#srvStatus").innerHTML = `
+    <h2>Состояние</h2>
+    <div class="row"><span><span class="dot on"></span><b>${esc(s.serverName || "")}</b></span>
+      <span class="muted">${esc(mapName(st.map))} · ${esc(modeName(st.mode))} · игроков ${players.length} из ${esc(s.maxPlayers || "?")}
+      · обновлено ${st.age} с назад</span></div>
+    ${players.length ? `<div class="scroll" style="margin-top:10px"><table>
+      <tr><th>Игрок</th><th>Звание</th><th>Команда</th><th>Очки</th><th>У/С</th><th>Пинг</th><th></th></tr>
+      ${players.map((p) => `<tr><td>${esc(p.name)}</td><td>${esc(p.rankName)}</td><td>${p.team}</td>
+        <td>${num(p.score)}</td><td>${num(p.kills)}/${num(p.deaths)}</td><td>${num(p.ping)}</td>
+        <td class="act"><button class="btn small ghost" data-open="${p.pid}">Карточка</button>
+        <button class="btn small danger" data-kick="${p.index} ${p.pid}" data-name="${esc(p.name)}">Кик</button></td></tr>`).join("")}
+      </table></div>` : `<div class="note">На сервере никого нет</div>`}
+    <div class="row" style="margin-top:12px">
+      <button class="btn ghost" id="cmdNext">Следующая карта</button>
+      <button class="btn ghost" id="cmdRestart">Перезапустить карту</button>
+      <input id="cmdSay" placeholder="Сообщение в чат (латиницей)" style="flex:1; min-width:200px">
+      <button class="btn ghost" id="cmdSayBtn">Отправить</button>
+    </div>`;
+  $("#cmdNext").onclick = () => serverCommand("next_map", "", "Переключить на следующую карту?");
+  $("#cmdRestart").onclick = () => serverCommand("restart_map", "", "Перезапустить текущую карту?");
+  $("#cmdSayBtn").onclick = () => { const t = $("#cmdSay").value.trim(); if (t) serverCommand("say", t).then(() => { $("#cmdSay").value = ""; }); };
+  $("#srvStatus").onclick = (e) => {
+    if (e.target.dataset.kick) serverCommand("kick", e.target.dataset.kick, `Кикнуть ${e.target.dataset.name}?`);
+    if (e.target.dataset.open) { document.querySelector('nav button[data-tab="players"]').click(); loadPlayer(Number(e.target.dataset.open)); }
+  };
+}
+
+async function serverCommand(command, arg = "", confirmText = null) {
+  if (confirmText && !confirm(confirmText)) return;
+  try { toast((await call("/api/server", { action: "command", command, arg })).ok); } catch (e) { toast(e.message, true); }
+}
+
+function renderSettings() {
+  const saved = srv.data.config.settings, current = (srv.data.status || {}).settings || {};
+  $("#srvSettings").innerHTML = srv.data.fields.map((f) => {
+    let v = saved[f.key] ?? current[f.key] ?? "";
+    if (f.type === "bool") {
+      const on = String(v) === "1" || v === true;
+      return `<div class="setting"><label for="f_${f.key}">${esc(f.label)}</label>
+        <input type="checkbox" id="f_${f.key}" data-key="${f.key}" data-orig="${on ? 1 : 0}" ${on ? "checked" : ""}></div>`;
+    }
+    const type = f.type === "str" ? "text" : "number";
+    const extra = f.type === "str" ? "" : `min="${f.min}" max="${f.max}" step="${f.type === "float" ? "0.1" : "1"}"`;
+    v = String(v).replace(/^"|"$/g, "");
+    return `<div class="setting"><label for="f_${f.key}">${esc(f.label)}</label>
+      <input type="${type}" ${extra} id="f_${f.key}" data-key="${f.key}" data-orig="${esc(v)}" value="${esc(v)}"></div>`;
+  }).join("");
+}
+
+$("#srvSettings").oninput = (e) => {
+  const inp = e.target;
+  if (!inp.dataset.key) return;
+  const value = inp.type === "checkbox" ? (inp.checked ? "1" : "0") : inp.value;
+  inp.classList.toggle("changed", value !== inp.dataset.orig);
+};
+
+$("#srvSave").onclick = async () => {
+  const values = {};
+  for (const inp of $("#srvSettings").querySelectorAll("input[data-key]")) {
+    const value = inp.type === "checkbox" ? (inp.checked ? "1" : "0") : inp.value.trim();
+    if (value !== inp.dataset.orig) values[inp.dataset.key] = inp.type === "checkbox" ? inp.checked : value;
+  }
+  if (!Object.keys(values).length) return toast("Ничего не изменено", true);
+  try { toast((await call("/api/server", { action: "settings", values })).ok); await loadServer(); } catch (e) { toast(e.message, true); }
+};
+
+function renderRotation() {
+  const levels = srv.data.levels;
+  const names = Object.keys(levels).sort();
+  $("#srvRotNote").textContent = srv.data.config.maplist ? "" :
+    "Сейчас сервер крутит карты из своего файла настроек. Сохрани ротацию здесь — и дальше она управляется из панели.";
+  $("#srvRot").innerHTML = srv.rotation.map(([m, mode, size], i) => {
+    const modes = Object.keys(levels[m] || {});
+    const sizes = (levels[m] || {})[mode] || [];
+    return `<tr data-i="${i}"><td class="n">${i + 1}</td>
+      <td><select data-f="map">${names.map((n) => `<option value="${n}" ${n === m ? "selected" : ""}>${esc(mapName(n))}</option>`).join("")}</select></td>
+      <td><select data-f="mode">${modes.map((x) => `<option value="${x}" ${x === mode ? "selected" : ""}>${esc(modeName(x))}</option>`).join("")}</select></td>
+      <td><select data-f="size">${sizes.map((x) => `<option value="${x}" ${x === Number(size) ? "selected" : ""}>${x} игроков</option>`).join("")}</select></td>
+      <td class="act"><button class="btn small ghost" data-mv="-1">↑</button> <button class="btn small ghost" data-mv="1">↓</button>
+        <button class="btn small danger" data-del="1">×</button></td></tr>`;
+  }).join("") || `<tr><td class="muted">Пусто — добавь карты или загрузи стандартную ротацию</td></tr>`;
+}
+
+$("#srvRot").onchange = (e) => {
+  const tr = e.target.closest("tr"), f = e.target.dataset.f;
+  if (!tr || !f) return;
+  const row = srv.rotation[Number(tr.dataset.i)], levels = srv.data.levels;
+  if (f === "map") { row[0] = e.target.value; row[1] = Object.keys(levels[row[0]])[0]; row[2] = levels[row[0]][row[1]].slice(-1)[0]; }
+  if (f === "mode") { row[1] = e.target.value; row[2] = levels[row[0]][row[1]].slice(-1)[0]; }
+  if (f === "size") row[2] = Number(e.target.value);
+  renderRotation();
+};
+$("#srvRot").onclick = (e) => {
+  const tr = e.target.closest("tr");
+  if (!tr || !tr.dataset.i) return;
+  const i = Number(tr.dataset.i);
+  if (e.target.dataset.del) srv.rotation.splice(i, 1);
+  if (e.target.dataset.mv) {
+    const j = i + Number(e.target.dataset.mv);
+    if (j < 0 || j >= srv.rotation.length) return;
+    [srv.rotation[i], srv.rotation[j]] = [srv.rotation[j], srv.rotation[i]];
+  }
+  renderRotation();
+};
+$("#rotAdd").onclick = () => {
+  const m = "sidi_power_plant", levels = srv.data.levels;
+  const mode = levels[m] ? Object.keys(levels[m])[0] : Object.keys(levels[Object.keys(levels)[0]])[0];
+  srv.rotation.push([m, mode, (levels[m] || {})[mode].slice(-1)[0]]);
+  renderRotation();
+};
+$("#rotDefault").onclick = () => {
+  if (srv.rotation.length && !confirm("Заменить текущую ротацию стандартной?")) return;
+  srv.rotation = DEFAULT_ROTATION.map((r) => r.slice());
+  renderRotation();
+};
+$("#rotSave").onclick = async () => {
+  try { toast((await call("/api/server", { action: "maplist", maplist: srv.rotation })).ok); await loadServer(); } catch (e) { toast(e.message, true); }
+};
+
 // --- навигация ---------------------------------------------------------------
 
 document.querySelector("nav").onclick = (e) => {
@@ -365,7 +555,13 @@ document.querySelector("nav").onclick = (e) => {
   for (const b of document.querySelectorAll("nav button")) b.classList.toggle("active", b.dataset.tab === tab);
   $("#view-players").classList.toggle("hidden", tab !== "players");
   $("#view-bans").classList.toggle("hidden", tab !== "bans");
+  $("#view-server").classList.toggle("hidden", tab !== "server");
   if (tab === "bans") loadBans();
+  clearInterval(srv.timer);
+  if (tab === "server") {
+    loadServer();
+    srv.timer = setInterval(() => loadServer(false), 15000);  // состояние и игроки — каждые 15 с
+  }
 };
 $("#list").onclick = (e) => { const el = e.target.closest(".player"); if (el) loadPlayer(Number(el.dataset.pid)); };
 let searchTimer;

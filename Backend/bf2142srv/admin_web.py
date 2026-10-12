@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qsl, urlsplit
 
-from . import progression
+from . import progression, server_config
 from .admin import NAME_RULE, describe_ban, valid_name
 from .context import Context
 from .db import AlreadyExists, hash_password
@@ -276,6 +276,41 @@ class AdminAPI:
         log.info("админка: разбан аккаунта #%d (снято %d)", account_id, lifted)
         return f"снято банов: {lifted}"
 
+    # --- игровой сервер: состояние, настройки, ротация, команды -------------------
+
+    def server(self):
+        sc = self.ctx.server
+        cfg = sc.load()
+        status = sc.current_status()
+        if status:
+            for p in status["players"]:
+                soldier = self.db.soldier(p["pid"]) if p["pid"] > 2000 else None
+                p["rankName"] = self.rank_name(int(self.db.stats(p["pid"]).get("rnk", 0))) if soldier else ""
+        return {
+            "status": status,
+            "config": cfg,
+            "fields": [{"key": k, "type": t, "label": label, "min": lo, "max": hi}
+                       for k, t, label, lo, hi in server_config.FIELDS],
+            "modes": server_config.MODES,
+            "levels": server_config.LEVELS,
+        }
+
+    def server_action(self, data: dict) -> str:
+        sc, action = self.ctx.server, data.get("action")
+        if action == "settings":
+            version = sc.save(settings=data.get("values") or {})
+            message = f"настройки сохранены (версия {version}), сервер применит их в течение 30 секунд"
+        elif action == "maplist":
+            version = sc.save(maplist=data.get("maplist") or [])
+            message = f"ротация сохранена (версия {version}), действует со следующей карты"
+        elif action == "command":
+            sc.queue(str(data.get("command", "")), str(data.get("arg", "")))
+            message = f"команда «{data.get('command')}» отправлена, сервер выполнит её в течение 30 секунд"
+        else:
+            raise ValueError("неизвестное действие")
+        log.info("админка: сервер — %s", message)
+        return message
+
 
 def serve(ctx: Context):
     port = ctx.cfg.admin_web_port
@@ -331,6 +366,8 @@ def serve(ctx: Context):
                     return self._json(200, api.player(int(m.group(1))))
                 if url.path == "/api/bans":
                     return self._json(200, api.bans())
+                if url.path == "/api/server":
+                    return self._json(200, api.server())
                 self._json(404, {"error": "не найдено"})
             except LookupError as e:
                 self._json(404, {"error": str(e)})
@@ -351,6 +388,8 @@ def serve(ctx: Context):
                 m = re.fullmatch(r"/api/account/(\d+)/unban", url.path)
                 if m:
                     return self._json(200, {"ok": api.unban_account(int(m.group(1)))})
+                if url.path == "/api/server":
+                    return self._json(200, {"ok": api.server_action(data)})
                 self._json(404, {"error": "не найдено"})
             except (ValueError, KeyError, TypeError, AlreadyExists) as e:
                 self._json(400, {"error": str(e) if not isinstance(e, AlreadyExists) else "такое имя уже занято"})

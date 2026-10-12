@@ -6,7 +6,7 @@ mapList.append cerbere_landing gpm_cq 64
 mapList.append shuhia_taiba gpm_ti 48
 mapList.append tunis_harbor gpm_cq 64
 mapList.append verdun gpm_ti 48
-mapList.append wake_island_2142 gpm_cq 64
+mapList.append wake_island_2142 gpm_ca 64
 mapList.append camp_gibraltar gpm_ti 48
 mapList.append belgrade gpm_cq 64
 mapList.append molokai gpm_ti 48

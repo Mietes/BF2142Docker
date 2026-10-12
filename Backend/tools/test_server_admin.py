@@ -54,6 +54,8 @@ class Player:
     def isAlive(self): return self.alive
     def isCommander(self): return self.commander
     def isValid(self): return True
+    def getTeam(self): return 1
+    def getPing(self): return 40
     def getVehicle(self): return self.obj
     def getDefaultVehicle(self): return self.obj
 
@@ -61,8 +63,10 @@ class Player:
 class World:
     def __init__(self):
         self.players, self.handlers, self.public, self.private, self.kicked = [], {}, [], [], []
-        self.backend = {"admins": [1], "banned": [], "idle": 300}
-        self.bans, self.unbans, self.logs = [], [], []
+        self.backend = {"admins": [1], "banned": [], "idle": 300, "config": 0, "cmds": [],
+                        "serverconfig": "version=0\n"}
+        self.bans, self.unbans, self.logs, self.console, self.states = [], [], [], [], []
+        self.sv = {"serverName": "BF2142 Remaster", "soldierFriendlyFire": "25"}
 
     # host
     def registerHandler(self, name, fn, always):
@@ -75,9 +79,15 @@ class World:
         self.public.append(text)
 
     def rcon_invoke(self, cmd):
-        index = int(cmd.split()[-1])
-        self.kicked.append(index)
-        self.players = [p for p in self.players if p.index != index]
+        if cmd.startswith("admin.kickPlayer "):
+            index = int(cmd.split()[-1])
+            self.kicked.append(index)
+            self.players = [p for p in self.players if p.index != index]
+            return ""
+        if cmd.startswith("sv.") and " " not in cmd:  # чтение настройки
+            return self.sv.get(cmd[3:], "0") + "\n"
+        self.console.append(cmd)
+        return ""
 
     # bf2.gameLogic / playerManager
     def sendServerMessage(self, index, text):
@@ -91,10 +101,16 @@ class World:
 
     # selfhost
     def httpRequest(self, method, path, body="", timeout=0):
-        if path == "/selfhost/serverinfo":
+        if path == "/selfhost/status":
+            self.states.append(body)
             b = self.backend
+            cmds = "".join(f"cmd={c}\n" for c in b["cmds"])
+            b["cmds"] = []
             return "HTTP/1.0 200 OK", (f"admins={' '.join(map(str, b['admins']))}\n"
-                                       f"banned={' '.join(map(str, b['banned']))}\nidle_kick={b['idle']}\n")
+                                       f"banned={' '.join(map(str, b['banned']))}\nidle_kick={b['idle']}\n"
+                                       f"config={b['config']}\n{cmds}")
+        if path == "/selfhost/serverconfig":
+            return "HTTP/1.0 200 OK", self.backend["serverconfig"]
         fields = dict(parse_qsl(body))
         if path == "/selfhost/ban":
             self.bans.append(fields)
@@ -204,6 +220,31 @@ def main():
     check(7 not in world.kicked and 8 not in world.kicked and 0 not in world.kicked,
           "двигающийся, командир и админ остаются")
     check(4 not in world.kicked, "боты не проверяются (бот стоит на месте и не кикнут)")
+
+    print("Панель управления:")
+    state = world.states[-1]
+    check("sv.serverName=BF2142 Remaster" in state and "sv.soldierFriendlyFire=25" in state,
+          "сервер сообщает текущие настройки")
+    check("\tMover\t11\t" in state and "\tBot\t" not in state, "и список живых игроков (без ботов)")
+    world.backend["config"] = 3
+    world.backend["serverconfig"] = ("version=3\nsv.soldierFriendlyFire 0\nsv.serverName \"New name\"\n"
+                                     "mapList.clear\nmapList.append minsk gpm_ti 48\nadmin.shutdown\n")
+    clock.now += m.REFRESH
+    world.tick(None)
+    check(world.console[-4:] == ["sv.soldierFriendlyFire 0", 'sv.serverName "New name"', "mapList.clear",
+                                 "mapList.append minsk gpm_ti 48"],
+          f"новая версия настроек применена командами консоли: {world.console[-4:]}")
+    check("admin.shutdown" not in world.console, "посторонние команды из ответа не выполняются")
+    before = len(world.console)
+    clock.now += m.REFRESH
+    world.tick(None)
+    check(len(world.console) == before, "та же версия повторно не применяется")
+    world.backend["cmds"] = ["next_map", "say Server restart soon", f"kick 7 11", "kick 8 999"]
+    clock.now += m.REFRESH
+    world.tick(None)
+    check("admin.runNextLevel" in world.console and "[Admin] Server restart soon" in world.public,
+          "команды: следующая карта, сообщение в чат")
+    check(7 in world.kicked and 8 not in world.kicked, "кик из панели — только если индекс и pid совпали")
 
     print("\nИТОГ:", "всё работает" if failures == 0 else f"ошибок: {failures}")
     sys.exit(1 if failures else 0)

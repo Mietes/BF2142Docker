@@ -2,9 +2,12 @@
 # In-game administration for the self-hosted BF2142 server:
 #  - chat commands for admins: !kick, !ban, !unban, !help;
 #  - kicks players whose account is banned on the backend;
-#  - kicks idle players (the commander and admins are exempt).
-# Admins, bans and the idle limit come from the backend (config.toml [admin]), refreshed
-# every few minutes. Same Python 2.3 restrictions as selfhost.py; loaded by selfhost.init().
+#  - kicks idle players (the commander and admins are exempt);
+#  - server settings, map rotation and commands from the backend's web admin panel.
+# Every REFRESH seconds the server posts its state to the backend (/selfhost/status: map, players,
+# current sv.* values) and gets admins, bans, the idle limit, the settings version and queued
+# commands back; a new settings version is fetched from /selfhost/serverconfig and applied live.
+# Same Python 2.3 restrictions as selfhost.py; loaded by selfhost.init().
 # Messages are in English: chat fonts of non-Russian clients have no Cyrillic.
 
 import host
@@ -13,7 +16,14 @@ import time
 import selfhost
 
 TICK = 5            # seconds between checks
-REFRESH = 120       # seconds between backend refreshes
+REFRESH = 30        # seconds between backend refreshes
+# sv.* settings reported to and set from the admin panel (= FIELDS in bf2142srv/server_config.py)
+SETTINGS = ["serverName", "password", "welcomeMessage", "maxPlayers", "numPlayersNeededToStart",
+	"ticketRatio", "timeLimit", "roundsPerMap", "spawnTime", "manDownTime", "soldierFriendlyFire",
+	"vehicleFriendlyFire", "soldierSplashFriendlyFire", "vehicleSplashFriendlyFire", "tkPunishEnabled",
+	"tkNumPunishToKick", "tkPunishByDefault", "autoBalanceTeam", "teamRatioPercent", "votingEnabled",
+	"minPlayersForVoting", "allowFreeCam", "allowExternalViews", "allowNoseCam", "hitIndicator",
+	"allowTitanMovement", "botSkill", "startDelay", "endDelay"]
 WARN_BEFORE = 60    # warn idle players this many seconds before the kick
 PREFIX = "[Admin] "
 HELP = "Commands: !kick <name> [reason] | !ban <name> [30m|12h|7d|perm] [reason] | !unban <soldier>"
@@ -28,6 +38,7 @@ _timer = None
 _activity = {}      # player index -> [signature, idle since, warned]
 _pendingKicks = []  # [time, player index, pid, message]
 _positionBroken = 0
+_configVersion = 0  # version of the panel settings already applied
 
 
 def init():
@@ -72,20 +83,46 @@ def humans():
 
 # --- backend -------------------------------------------------------------------
 
+def stateBody():
+	"""Server state for the admin panel: map, settings, human players."""
+	lines = ["config=%d" % _configVersion]
+	try:
+		lines.append("map=" + bf2.gameLogic.getMapName())
+		lines.append("mode=" + bf2.serverSettings.getGameMode())
+	except:
+		pass
+	for key in SETTINGS:
+		try:
+			value = host.rcon_invoke("sv." + key)
+		except:
+			continue
+		lines.append("sv.%s=%s" % (key, str(value).strip().replace("\n", " ")))
+	for p in humans():
+		try:
+			s = p.score
+			lines.append("player=%d\t%s\t%d\t%d\t%d\t%d\t%d\t%d" % (p.index, p.getName().replace("\t", " "),
+				p.getProfileId(), p.getTeam(), s.score, s.kills, s.deaths, p.getPing()))
+		except:
+			pass
+	return "\n".join(lines) + "\n"
+
+
 def refresh():
 	global _admins, _banned, _idleKick, _lastRefresh
 	_lastRefresh = time.time()
 	try:
-		status, reply = selfhost.httpRequest("GET", "/selfhost/serverinfo", "", 2.0)
+		status, reply = selfhost.httpRequest("POST", "/selfhost/status", stateBody(), 2.0)
 	except:
 		selfhost.logException("admin: backend unavailable")
 		return
 	if status.find(" 200 ") < 0:
-		selfhost.log("admin: backend refused serverinfo: %s / %s" % (status, reply.strip()[:120]))
+		selfhost.log("admin: backend refused status: %s / %s" % (status, reply.strip()[:120]))
 		return
 	admins = {}
 	banned = {}
 	idle = _idleKick
+	version = _configVersion
+	commands = []
 	for line in reply.split("\n"):
 		if line.find("=") < 0:
 			continue
@@ -98,10 +135,66 @@ def refresh():
 				banned[int(pid)] = 1
 		elif key == "idle_kick":
 			idle = int(value)
+		elif key == "config":
+			version = int(value)
+		elif key == "cmd":
+			commands.append(value)
 	_admins, _banned, _idleKick = admins, banned, idle
 	for p in humans():
 		if p.getProfileId() in _banned:
 			kick(p, "%s is banned" % p.getName())
+	if version != _configVersion:
+		applyConfig()
+	for command in commands:
+		runCommand(command)
+
+
+def applyConfig():
+	"""Settings and map rotation from the admin panel: console commands sv.* and mapList.* only."""
+	global _configVersion
+	try:
+		status, reply = selfhost.httpRequest("GET", "/selfhost/serverconfig", "", 2.0)
+	except:
+		selfhost.logException("admin: settings not loaded")
+		return
+	if status.find(" 200 ") < 0:
+		selfhost.log("admin: backend refused serverconfig: %s" % status)
+		return
+	version = _configVersion
+	count = 0
+	for line in reply.split("\n"):
+		line = line.strip()
+		if line[:8] == "version=":
+			version = int(line[8:])
+		elif line[:3] == "sv." or line[:8] == "mapList.":
+			host.rcon_invoke(line)
+			count = count + 1
+	_configVersion = version
+	selfhost.log("admin: panel settings version %d applied (%d console commands)" % (version, count))
+
+
+def runCommand(command):
+	"""Commands queued in the admin panel: next_map, restart_map, say <text>, kick <index> <pid>."""
+	parts = command.split(" ", 1)
+	name = parts[0]
+	arg = ""
+	if len(parts) > 1:
+		arg = parts[1].strip()
+	selfhost.log("admin: panel command %s" % command)
+	if name == "next_map":
+		announce("Next map (admin)")
+		host.rcon_invoke("admin.runNextLevel")
+	elif name == "restart_map":
+		announce("Map restart (admin)")
+		host.rcon_invoke("admin.restartMap")
+	elif name == "say" and arg:
+		announce(arg)
+	elif name == "kick":
+		words = arg.split()
+		if len(words) >= 2 and words[0].isdigit() and words[1].isdigit():
+			p = bf2.playerManager.getPlayerByIndex(int(words[0]))
+			if p is not None and p.getProfileId() == int(words[1]):
+				kick(p, "%s was kicked by admin" % p.getName())
 
 
 def post(path, fields):

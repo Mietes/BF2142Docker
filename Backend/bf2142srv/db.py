@@ -84,6 +84,11 @@ CREATE TABLE IF NOT EXISTS bans (
     lifted     INTEGER
 );
 CREATE INDEX IF NOT EXISTS bans_account ON bans(account_id);
+-- Настройки, которые меняются из админки (например, настройки игрового сервера), — JSON по ключу.
+CREATE TABLE IF NOT EXISTS settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 """
 # Столбцы, добавленные после первых версий: (таблица, столбец, определение).
 MIGRATIONS = [("accounts", "last_ip", "TEXT NOT NULL DEFAULT ''")]
@@ -365,6 +370,17 @@ class Database:
                 "ON CONFLICT(pid, award) DO UPDATE SET count=count+1, last=excluded.last",
                 (pid, award, when, when),
             )
+
+    # --- настройки из админки ------------------------------------------------
+
+    def get_setting(self, key):
+        row = self._one("SELECT value FROM settings WHERE key=?", (key,))
+        return row["value"] if row else None
+
+    def set_setting(self, key, value: str):
+        with self._lock:
+            self._conn.execute("INSERT INTO settings(key, value) VALUES (?, ?) "
+                               "ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, value))
 
     # --- баны ---------------------------------------------------------------
 
