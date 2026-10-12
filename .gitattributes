@@ -1,0 +1,16 @@
+* text=auto
+
+# Всё, что выполняется в Linux-контейнерах, — только с LF
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf
+docker/** text eol=lf
+.env.example text eol=lf
+
+# Windows-скрипты — с CRLF
+*.bat text eol=crlf
+*.iss text eol=crlf
+
+*.png binary
+*.ico binary
+*.sqlite3 binary

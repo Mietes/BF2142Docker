@@ -1,0 +1,3 @@
+cryptography==50.0.2
+ecdsa==0.19.2
+tlslite-ng==0.8.2

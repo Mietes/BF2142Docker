@@ -1,0 +1,9 @@
+# Контекст сборки игрового сервера — корень репозитория. Берём только нужное.
+*
+!Backend/bf2142srv/**
+!Backend/tools/patch_server.py
+!Backend/tools/install_server.py
+!Backend/gameserver/**
+!docker/gameserver/**
+!server-files/**
+**/__pycache__

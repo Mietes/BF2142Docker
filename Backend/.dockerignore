@@ -1,0 +1,8 @@
+.venv/
+data/
+dist/
+**/__pycache__/
+installer/
+kit/
+config.toml
+start_backend.bat

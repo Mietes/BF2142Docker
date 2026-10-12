@@ -1,0 +1,24 @@
+# Секреты и настройки конкретного сервера
+.env
+Backend/config.toml
+
+# Данные и журналы (база игроков, ключи FESL, снимки раундов)
+/data/
+/logs/
+/config/
+Backend/data/
+
+# Файлы игры и игрового сервера (EA, Project Remaster) — передаются отдельным архивом, см. DEPLOY.md
+/server-files/
+*.tar.gz
+/GameServer/
+Backend/installer/bf2142.ico
+
+# Сборки и окружение
+Backend/.venv/
+Backend/dist/
+**/__pycache__/
+*.pyc
+
+# Локальные ярлыки
+*.url

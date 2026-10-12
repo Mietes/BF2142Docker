@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BF2142 Админка</title>
+<style>
+  :root {
+    --bg: #0f1216; --panel: #171b21; --panel2: #1e232b; --line: #2a313b; --text: #e3e7ec;
+    --muted: #8b95a3; --accent: #4aa3ff; --accent2: #2b6fb8; --ok: #3fbf7f; --warn: #e0a83a;
+    --bad: #e5534b; --gold: #d8b45a; --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 "Segoe UI", system-ui, sans-serif; }
+  header { display: flex; align-items: center; gap: 16px; padding: 12px 20px; background: var(--panel);
+           border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+  header h1 { font-size: 16px; margin: 0; letter-spacing: .5px; }
+  header h1 span { color: var(--accent); }
+  nav { display: flex; gap: 4px; }
+  nav button { background: none; border: 0; color: var(--muted); padding: 7px 14px; border-radius: 8px; cursor: pointer; font: inherit; }
+  nav button.active { background: var(--panel2); color: var(--text); }
+  .spacer { flex: 1; }
+  main { display: grid; grid-template-columns: minmax(300px, 420px) 1fr; gap: 16px; padding: 16px 20px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 14px; }
+  .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin: 0 0 10px; }
+  input, select { background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 8px;
+                  padding: 7px 10px; font: inherit; }
+  input:focus, select:focus { outline: 2px solid var(--accent2); outline-offset: -1px; }
+  button.btn { background: var(--accent2); color: #fff; border: 0; border-radius: 8px; padding: 7px 14px; font: inherit;
+               cursor: pointer; white-space: nowrap; }
+  button.btn:hover { background: var(--accent); }
+  button.btn.ghost { background: var(--panel2); color: var(--text); border: 1px solid var(--line); }
+  button.btn.danger { background: #8f2f2a; }
+  button.btn.danger:hover { background: var(--bad); }
+  button.btn.small { padding: 3px 9px; font-size: 12px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .row + .row { margin-top: 8px; }
+  .muted { color: var(--muted); }
+  .search { width: 100%; margin-bottom: 10px; }
+  .list { max-height: calc(100vh - 170px); overflow: auto; }
+  .player { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 9px 10px; border-radius: 8px; cursor: pointer;
+            border: 1px solid transparent; }
+  .player:hover { background: var(--panel2); }
+  .player.sel { background: var(--panel2); border-color: var(--accent2); }
+  .player .n { font-weight: 600; }
+  .player .r { text-align: right; color: var(--gold); font-size: 12px; }
+  .player .s { color: var(--muted); font-size: 12px; }
+  .badge { display: inline-block; padding: 1px 7px; border-radius: 6px; font-size: 11px; font-weight: 600; vertical-align: 1px; }
+  .badge.ban { background: rgba(229, 83, 75, .18); color: #ff8a83; }
+  .badge.k-badge { background: rgba(216, 180, 90, .15); color: var(--gold); }
+  .badge.k-medal { background: rgba(74, 163, 255, .15); color: #8cc6ff; }
+  .badge.k-ribbon { background: rgba(63, 191, 127, .15); color: #7fe0ae; }
+  .badge.k-pin { background: rgba(160, 120, 255, .15); color: #c3a9ff; }
+  .title { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+  .title h3 { font-size: 22px; margin: 0; }
+  .rankline { font-size: 15px; color: var(--gold); }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 14px; }
+  .bar { height: 6px; background: var(--panel2); border-radius: 4px; overflow: hidden; margin: 8px 0; }
+  .bar div { height: 100%; background: linear-gradient(90deg, var(--accent2), var(--accent)); }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; }
+  .kv .k { color: var(--muted); }
+  .trees { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px; }
+  .tree { background: var(--panel2); border-radius: 8px; padding: 8px 10px; }
+  .tree .t { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .tree select { width: 100%; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; background: var(--panel2); border: 1px solid var(--line);
+          border-radius: 8px; padding: 3px 4px 3px 9px; font-size: 13px; }
+  .chip button { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 15px; padding: 0 5px; }
+  .chip button:hover { color: var(--bad); }
+  .banbox { background: rgba(229, 83, 75, .12); border: 1px solid rgba(229, 83, 75, .4); border-radius: 8px; padding: 10px 12px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; }
+  td input { width: 100%; padding: 4px 7px; }
+  td input.changed { border-color: var(--warn); }
+  .scroll { max-height: 360px; overflow: auto; }
+  .empty { color: var(--muted); padding: 30px; text-align: center; }
+  .note { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  #toast { position: fixed; right: 20px; bottom: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 10; }
+  .toast { background: var(--panel2); border: 1px solid var(--line); border-left: 4px solid var(--ok); padding: 9px 14px;
+           border-radius: 8px; max-width: 420px; box-shadow: 0 6px 20px rgba(0,0,0,.4); }
+  .toast.err { border-left-color: var(--bad); }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1>BF2142 <span>Админка</span></h1>
+  <nav>
+    <button data-tab="players" class="active">Игроки</button>
+    <button data-tab="bans">Баны</button>
+  </nav>
+  <div class="spacer"></div>
+  <span class="muted" id="status"></span>
+</header>
+
+<main id="view-players">
+  <section>
+    <div class="card">
+      <input class="search" id="q" placeholder="Поиск по солдату или аккаунту…" autocomplete="off">
+      <div class="list" id="list"><div class="empty">Загрузка…</div></div>
+    </div>
+  </section>
+  <section id="detail"><div class="card empty">Выбери игрока слева</div></section>
+</main>
+
+<main id="view-bans" class="hidden" style="grid-template-columns: 1fr;">
+  <section><div class="card"><h2>Действующие баны</h2><div id="bans"></div></div></section>
+</main>
+
+<div id="toast"></div>
+
+<script>
+"use strict";
+const state = { meta: null, players: [], pid: null, player: null };
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const num = (n) => Number(n || 0).toLocaleString("ru-RU");
+const date = (t) => t ? new Date(t * 1000).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
+const hours = (s) => { s = Number(s || 0); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return h ? `${h} ч ${m} мин` : `${m} мин`; };
+const kd = (k, d) => (Number(d) ? (Number(k) / Number(d)).toFixed(2) : Number(k || 0).toFixed(0));
+const KIND = { badge: "Знаки", medal: "Медали", ribbon: "Ленты", pin: "Значки отличия" };
+const KIND1 = { badge: "Знак", medal: "Медаль", ribbon: "Лента", pin: "Значок" };
+
+async function call(url, body) {
+  const opts = body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json", "X-Admin": "1" }, body: JSON.stringify(body) };
+  const r = await fetch(url, opts);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || `${r.status} ${r.statusText}`);
+  return data;
+}
+
+function toast(text, err = false) {
+  const el = document.createElement("div");
+  el.className = "toast" + (err ? " err" : "");
+  el.textContent = text;
+  $("#toast").append(el);
+  setTimeout(() => el.remove(), err ? 7000 : 3500);
+}
+
+async function act(action, extra = {}, confirmText = null) {
+  if (confirmText && !confirm(confirmText)) return;
+  try {
+    const res = await call(`/api/player/${state.pid}`, { action, ...extra });
+    toast(res.ok);
+    await Promise.all([loadPlayer(state.pid), loadPlayers()]);
+  } catch (e) { toast(e.message, true); }
+}
+
+// --- список игроков ----------------------------------------------------------
+
+async function loadPlayers() {
+  try {
+    state.players = await call(`/api/players?q=${encodeURIComponent($("#q").value.trim())}`);
+    renderList();
+    $("#status").textContent = `солдат: ${state.players.length}`;
+  } catch (e) { $("#list").innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+
+function renderList() {
+  if (!state.players.length) { $("#list").innerHTML = `<div class="empty">Никого не нашлось</div>`; return; }
+  $("#list").innerHTML = state.players.map((p) => `
+    <div class="player ${p.pid === state.pid ? "sel" : ""}" data-pid="${p.pid}">
+      <div class="n">${esc(p.name)} ${p.banned ? '<span class="badge ban">БАН</span>' : ""}</div>
+      <div class="r">${esc(p.rnk)} · ${esc(p.rankName)}</div>
+      <div class="s">аккаунт ${esc(p.account)} · ${num(p.crpt)} опыта · K/D ${kd(p.klls, p.dths)}</div>
+      <div class="s" style="text-align:right">${p.last_login ? date(p.last_login) : "не заходил"}</div>
+    </div>`).join("");
+}
+
+// --- карточка игрока ---------------------------------------------------------
+
+async function loadPlayer(pid) {
+  try {
+    state.player = await call(`/api/player/${pid}`);
+    state.pid = pid;
+    renderPlayer();
+    renderList();
+  } catch (e) { toast(e.message, true); }
+}
+
+function rankOptions(selected) {
+  return state.meta.ranks.map((r) => `<option value="${r.rank}" ${r.rank === selected ? "selected" : ""}>${r.rank} — ${esc(r.name)} (${num(r.xp)})</option>`).join("");
+}
+
+function awardOptions() {
+  const groups = {};
+  for (const a of state.meta.awards) (groups[a.kind] ||= []).push(a);
+  return Object.entries(groups).map(([kind, list]) =>
+    `<optgroup label="${esc(KIND[kind] || kind)}">${list.map((a) => `<option value="${a.id}">${esc(a.name)} (${a.id})</option>`).join("")}</optgroup>`).join("");
+}
+
+function renderPlayer() {
+  const p = state.player, m = state.meta;
+  const cur = m.ranks[p.rank] ? m.ranks[p.rank].xp : 0;
+  const pct = p.nextXp ? Math.min(100, Math.max(0, (p.xp - cur) / (p.nextXp - cur) * 100)) : 100;
+  const trees = m.trees.map((t) => {
+    const level = p.unlocks[`${t.kit}${t.tree}`] || 0;
+    const opts = [`<option value="0">0 — ничего</option>`].concat(t.items.map((it, i) =>
+      `<option value="${i + 1}" ${level === i + 1 ? "selected" : ""}>${i + 1} — ${esc(it.name)}</option>`)).join("");
+    return `<div class="tree"><div class="t">${esc(t.kitName)} · ${esc(t.name)} (${level}/${t.max})</div>
+            <select data-kit="${t.kit}" data-tree="${t.tree}">${opts}</select></div>`;
+  }).join("");
+  const awards = p.awards.length ? p.awards.map((a) => `
+      <span class="chip"><span class="badge k-${a.kind}">${esc(KIND1[a.kind] || "")}</span>
+      ${esc(a.name)}${a.count > 1 ? ` ×${a.count}` : ""}
+      <button title="Снять одну" data-award="${a.id}">−</button></span>`).join("") : `<span class="muted">Наград пока нет</span>`;
+  const ban = p.ban ? `
+      <div class="banbox"><b>Забанен</b>: ${esc(p.ban.text)}</div>
+      <div class="row" style="margin-top:10px"><button class="btn" id="unban">Разбанить</button></div>` : `
+      <div class="row">
+        <select id="banTime">
+          <option value="60">1 час</option><option value="1440">1 день</option><option value="4320">3 дня</option>
+          <option value="10080" selected>7 дней</option><option value="43200">30 дней</option><option value="">Навсегда</option>
+        </select>
+        <input id="banReason" placeholder="Причина" style="flex:1; min-width:160px">
+      </div>
+      <div class="row">
+        <label class="muted"><input type="checkbox" id="banIp"> и IP последнего входа (${esc(p.account.lastIp || "неизвестен")})</label>
+        <div class="spacer"></div><button class="btn danger" id="ban">Забанить</button>
+      </div>
+      <div class="note">Бан на весь аккаунт (все его солдаты). Если игрок на сервере — его кикнет в течение двух минут.
+      IP-бан задевает всех с этого адреса — осторожно с провайдерами с общим IP.</div>`;
+  const history = p.history.length ? `<div class="scroll"><table>
+      <tr><th>Конец раунда</th><th>У/С</th><th>Опыт</th><th>Награды</th><th>Всего</th></tr>
+      ${p.history.map((h) => `<tr><td>${date(h.ended)}</td><td>${num(h.kills)}/${num(h.deaths)}</td>
+        <td>${num(h.xp)}${h.multiplier && h.multiplier !== 1 ? ` <span class="muted">(${num(h.raw)} ×${h.multiplier})</span>` : ""}</td>
+        <td>${h.awards.length ? esc(h.awards.join(", ")) + ` <span class="muted">+${num(h.awardXp)}</span>` : "—"}</td>
+        <td>${num(h.total)}</td></tr>`).join("")}</table></div>` : `<span class="muted">Раундов пока нет</span>`;
+  const statRows = Object.keys(p.stats).sort().map((k) =>
+    `<tr data-key="${esc(k)}"><td>${esc(k)}</td><td><input data-key="${esc(k)}" value="${esc(p.stats[k])}" data-orig="${esc(p.stats[k])}"></td></tr>`).join("");
+
+  $("#detail").innerHTML = `
+    <div class="card">
+      <div class="title"><h3>${esc(p.name)}</h3>${p.ban ? '<span class="badge ban">БАН</span>' : ""}
+        <span class="muted">pid ${p.pid}</span></div>
+      <div class="rankline">${p.rank} · ${esc(p.rankName)}</div>
+      <div class="kv" style="margin-top:8px">
+        <span class="k">Аккаунт</span><span>${esc(p.account.name)} <span class="muted">(#${p.account.id}; солдаты: ${esc(p.account.soldiers.join(", "))})</span></span>
+        <span class="k">Создан</span><span>${date(p.created)}</span>
+        <span class="k">Последний вход</span><span>${date(p.lastLogin)} <span class="muted">${p.account.lastIp ? "с " + esc(p.account.lastIp) : ""}</span></span>
+        <span class="k">Время в бою</span><span>${hours(p.stats.tt)} · убийств ${num(p.stats.klls)}, смертей ${num(p.stats.dths)} (K/D ${kd(p.stats.klls, p.stats.dths)}) · побед ${num(p.stats.win)}, поражений ${num(p.stats.los)}</span>
+      </div>
+      <div class="note">Изменения сразу пишутся в базу; в игре игрок увидит их после перезахода.</div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h2>Звание и опыт</h2>
+        <div>${num(p.xp)} опыта${p.nextXp ? ` · до звания ${p.rank + 1}: ${num(p.nextXp - p.xp)}` : " · максимум"}</div>
+        <div class="bar"><div style="width:${pct}%"></div></div>
+        <div class="row"><select id="rank" style="flex:1">${rankOptions(p.rank)}</select><button class="btn" id="setRank">Поставить звание</button></div>
+        <div class="row"><input id="xp" type="number" min="0" value="${esc(p.xp)}" style="flex:1"><button class="btn ghost" id="setXp">Сохранить опыт</button></div>
+        <div class="note">Звание считается из опыта. Очки анлоков: заработано ${p.credits.earned}, потрачено ${p.credits.spent}, свободно ${p.credits.free}.</div>
+      </div>
+      <div class="card">
+        <h2>Бан</h2>${ban}
+      </div>
+    </div>
+    <div class="card">
+      <h2>Анлоки</h2>
+      <div class="trees" id="trees">${trees}</div>
+      <div class="row" style="margin-top:10px"><button class="btn ghost" id="unlocksAll">Открыть все</button>
+        <button class="btn ghost" id="unlocksReset">Сбросить все</button>
+        <span class="note">Уровни в ветке идут по порядку; сброс возвращает игроку потраченные очки.</span></div>
+    </div>
+    <div class="card">
+      <h2>Награды</h2>
+      <div class="chips" id="awards">${awards}</div>
+      <div class="row"><select id="awardSel" style="flex:1; min-width:220px">${awardOptions()}</select>
+        <button class="btn" id="awardAdd">Выдать</button></div>
+      <div class="note">Выдача из админки бонусного опыта не даёт. Знаки и ленты бывают только по одному.</div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h2>Аккаунт</h2>
+        <div class="row"><input id="pw" placeholder="Новый пароль (4–16 латинских букв и цифр)" style="flex:1" autocomplete="new-password">
+          <button class="btn ghost" id="setPw">Сменить пароль</button></div>
+        <div class="row"><input id="newName" placeholder="Новое имя солдата" style="flex:1">
+          <button class="btn ghost" id="rename">Переименовать</button></div>
+        <div class="row" style="margin-top:14px"><button class="btn danger" id="delSoldier">Удалить солдата</button>
+          <span class="note">Аккаунт и другие солдаты останутся.</span></div>
+      </div>
+      <div class="card">
+        <h2>Последние раунды</h2>${history}
+      </div>
+    </div>
+    <div class="card">
+      <h2>Вся статистика</h2>
+      <div class="row" style="margin-bottom:8px"><input id="statFilter" placeholder="Фильтр по ключу (klls, wkls-3, crpt…)" style="flex:1">
+        <button class="btn" id="saveStats">Сохранить изменённые</button></div>
+      <div class="scroll"><table id="stats"><tr><th>Ключ</th><th>Значение</th></tr>${statRows}</table></div>
+      <div class="note">Для опытных: ключи — как в статистике игры. При изменении crpt звание пересчитается само.</div>
+    </div>`;
+  bindPlayer();
+}
+
+function bindPlayer() {
+  const p = state.player;
+  $("#setRank").onclick = () => act("set_rank", { rank: Number($("#rank").value) });
+  $("#setXp").onclick = () => act("set_xp", { xp: Number($("#xp").value) });
+  $("#trees").onchange = (e) => {
+    const s = e.target;
+    if (s.dataset.kit) act("set_unlock", { kit: Number(s.dataset.kit), tree: Number(s.dataset.tree), level: Number(s.value) });
+  };
+  $("#unlocksAll").onclick = () => act("unlocks_all", {}, "Открыть игроку все анлоки?");
+  $("#unlocksReset").onclick = () => act("unlocks_reset", {}, "Сбросить все анлоки игрока?");
+  $("#awards").onclick = (e) => { const id = e.target.dataset.award; if (id) act("award_remove", { award: id }); };
+  $("#awardAdd").onclick = () => act("award_add", { award: $("#awardSel").value });
+  if (p.ban) $("#unban").onclick = () => act("unban", {}, `Разбанить аккаунт ${p.account.name}?`);
+  else $("#ban").onclick = () => {
+    const minutes = $("#banTime").value, reason = $("#banReason").value.trim();
+    act("ban", { minutes: minutes ? Number(minutes) : null, reason, ip: $("#banIp").checked },
+        `Забанить аккаунт ${p.account.name} (${$("#banTime").selectedOptions[0].text.toLowerCase()})?`);
+  };
+  $("#setPw").onclick = () => act("password", { password: $("#pw").value }, `Сменить пароль аккаунта ${p.account.name}?`);
+  $("#rename").onclick = () => act("rename", { name: $("#newName").value.trim() });
+  $("#delSoldier").onclick = () => {
+    const typed = prompt(`Удалить солдата ${p.name}? Статистика и анлоки пропадут.\nДля подтверждения впиши имя солдата:`);
+    if (typed === null) return;
+    call(`/api/player/${state.pid}`, { action: "delete_soldier", confirm: typed }).then((res) => {
+      toast(res.ok);
+      state.pid = null;
+      $("#detail").innerHTML = `<div class="card empty">Солдат удалён</div>`;
+      loadPlayers();
+    }).catch((e) => toast(e.message, true));
+  };
+  $("#statFilter").oninput = (e) => {
+    const f = e.target.value.trim().toLowerCase();
+    for (const tr of $("#stats").querySelectorAll("tr[data-key]")) tr.classList.toggle("hidden", f && !tr.dataset.key.includes(f));
+  };
+  $("#stats").oninput = (e) => { if (e.target.dataset.key) e.target.classList.toggle("changed", e.target.value !== e.target.dataset.orig); };
+  $("#saveStats").onclick = () => {
+    const values = {};
+    for (const inp of $("#stats").querySelectorAll("input.changed")) values[inp.dataset.key] = inp.value.trim();
+    if (!Object.keys(values).length) return toast("Ничего не изменено", true);
+    act("set_stats", { values }, `Сохранить: ${Object.entries(values).map(([k, v]) => `${k}=${v}`).join(", ")}?`);
+  };
+}
+
+// --- баны --------------------------------------------------------------------
+
+async function loadBans() {
+  try {
+    const bans = await call("/api/bans");
+    $("#bans").innerHTML = bans.length ? `<table><tr><th>Аккаунт</th><th>Солдаты</th><th>Бан</th><th>Выдан</th><th></th></tr>
+      ${bans.map((b) => `<tr><td>${esc(b.account || "только IP")}</td><td>${esc(b.soldiers.join(", "))}</td><td>${esc(b.text)}</td>
+        <td>${date(b.created)}</td><td>${b.accountId ? `<button class="btn small" data-acc="${b.accountId}">Разбанить</button>` : ""}</td></tr>`).join("")}
+      </table>` : `<div class="empty">Банов нет</div>`;
+  } catch (e) { toast(e.message, true); }
+}
+
+$("#bans").onclick = async (e) => {
+  const id = e.target.dataset.acc;
+  if (!id || !confirm("Снять бан?")) return;
+  try { toast((await call(`/api/account/${id}/unban`, {})).ok); loadBans(); loadPlayers(); } catch (err) { toast(err.message, true); }
+};
+
+// --- навигация ---------------------------------------------------------------
+
+document.querySelector("nav").onclick = (e) => {
+  const tab = e.target.dataset.tab;
+  if (!tab) return;
+  for (const b of document.querySelectorAll("nav button")) b.classList.toggle("active", b.dataset.tab === tab);
+  $("#view-players").classList.toggle("hidden", tab !== "players");
+  $("#view-bans").classList.toggle("hidden", tab !== "bans");
+  if (tab === "bans") loadBans();
+};
+$("#list").onclick = (e) => { const el = e.target.closest(".player"); if (el) loadPlayer(Number(el.dataset.pid)); };
+let searchTimer;
+$("#q").oninput = () => { clearTimeout(searchTimer); searchTimer = setTimeout(loadPlayers, 250); };
+
+(async () => {
+  try {
+    state.meta = await call("/api/meta");
+    await loadPlayers();
+  } catch (e) { $("#list").innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+})();
+</script>
+</body>
+</html>

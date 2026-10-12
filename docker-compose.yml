@@ -1,0 +1,48 @@
+# BF2142 Project Remaster — свой сервер: бэкенд (вход, звания, анлоки, награды, список серверов, админка)
+# и игровой сервер. Настройки — в .env (скопируй из .env.example). Подробно — DEPLOY.md.
+#
+#   docker compose up -d --build      собрать и запустить
+#   docker compose logs -f backend    журнал бэкенда
+#   docker compose down               остановить
+
+x-common-env: &common-env
+  BF2142_SERVER_SECRET: ${BF2142_SERVER_SECRET:?впиши BF2142_SERVER_SECRET в .env (см. .env.example)}
+
+services:
+  backend:
+    build: ./Backend
+    image: bf2142-backend
+    restart: unless-stopped
+    environment:
+      <<: *common-env
+      BF2142_PUBLIC_HOST: ${BF2142_PUBLIC_HOST:?впиши BF2142_PUBLIC_HOST в .env — адрес, который игроки вписывают в установщик}
+      BF2142_ADMINS: ${BF2142_ADMINS:-}
+      BF2142_AUTO_REGISTER: ${BF2142_AUTO_REGISTER:-true}
+    volumes:
+      - ./data:/data                          # база игроков, журнал, ключи FESL — бэкапить эту папку
+    ports:
+      - "18300:18300/tcp"                     # FESL: вход в аккаунт (порт зашит в игре)
+      - "29900:29900/tcp"                     # GPCM: профиль GameSpy (зашит в игре)
+      - "${BF2142_STATS_PORT:-80}:80/tcp"     # статистика, звания, анлоки, Штаб
+      - "27900:27900/udp"                     # мастер-сервер: регистрация серверов, «GameSpy доступен»
+      - "28910:28910/tcp"                     # список серверов для вкладки «Интернет»
+      - "127.0.0.1:8142:8142/tcp"             # веб-админка — только с самого хоста (ssh-туннель)
+
+  gameserver:
+    build:
+      context: .
+      dockerfile: docker/gameserver/Dockerfile
+    image: bf2142-gameserver
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      <<: *common-env
+    tty: true                                 # у сервера текстовый интерфейс (ncurses), ему нужен терминал
+    stdin_open: true
+    volumes:
+      - ./config:/config:ro                   # serversettings.con / maplist.con — свои настройки и карты
+      - ./logs:/logs                          # selfhost.log — итоги раундов, админ-команды
+    ports:
+      - "17567:17567/udp"                     # игра
+      - "29900:29900/udp"                     # запросы к серверу (пинг, игроки в списке)

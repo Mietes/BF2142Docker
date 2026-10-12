@@ -1,0 +1,5 @@
+# Адрес сервера / Server address.
+# Впиши IP, который дал администратор, например: address = 203.0.113.10
+# Если пусто — установщик спросит сам. Порт дописывай, только если администратор его назвал.
+# Put the IP the admin gave you, e.g.: address = 203.0.113.10 (empty = the installer will ask).
+address =
